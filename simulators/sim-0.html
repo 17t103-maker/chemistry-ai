@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>格雷姆扩散定律模拟器（NH3 / HCl 等）</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans SC",Arial;margin:0;background:#0b0f14;color:#e7eef7}
+    header{padding:14px 18px;border-bottom:1px solid #1c2633;background:#0e141c}
+    h1{font-size:16px;margin:0 0 6px 0;font-weight:650}
+    .sub{font-size:12px;opacity:.85;line-height:1.45}
+    main{display:grid;grid-template-columns:360px 1fr;gap:14px;padding:14px;align-items:start}
+    .card{background:#0e141c;border:1px solid #1c2633;border-radius:12px;padding:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    label{font-size:12px;opacity:.9;display:block;margin:10px 0 6px}
+    select,input[type="range"],input[type="number"]{width:100%}
+    input,select{background:#0b0f14;color:#e7eef7;border:1px solid #253246;border-radius:10px;padding:8px 10px}
+    button{background:#2a6df4;border:none;color:white;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:650}
+    button.secondary{background:#1b2636}
+    .tiny{font-size:12px;opacity:.9}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    canvas{width:100%;height:360px;background:#070a0f;border:1px solid #1c2633;border-radius:12px}
+    .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .k{background:#0b0f14;border:1px solid #1c2633;border-radius:12px;padding:10px}
+    .k .t{font-size:12px;opacity:.85}
+    .k .v{font-size:14px;margin-top:6px;font-weight:700}
+    .note{font-size:12px;opacity:.85;line-height:1.5}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+  </style>
+</head>
+<body>
+<header>
+  <h1>格雷姆扩散定律模拟器（教学版）</h1>
+  <div class="sub">
+    假设同温同压，扩散“快慢”用近似扩散系数表示：D ∝ 1/√M。以粒子随机运动模拟扩散，并在两种气体相遇区域生成“白色环”（示意 NH₄Cl）。
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="grid2">
+      <div>
+        <label>左端气体</label>
+        <select id="gasL"></select>
+      </div>
+      <div>
+        <label>右端气体</label>
+        <select id="gasR"></select>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label>玻璃管长度（cm）</label>
+        <input id="tubeLen" type="number" min="30" max="200" value="120" />
+      </div>
+      <div>
+        <label>粒子数（每侧）</label>
+        <input id="nParticles" type="number" min="50" max="1500" value="450" />
+      </div>
+    </div>
+
+    <label>扩散强度（统一倍率）</label>
+    <input id="diffScale" type="range" min="0.3" max="3.0" step="0.1" value="1.2" />
+    <div class="tiny">当前倍率：<span id="diffScaleVal" class="mono"></span></div>
+
+    <label>“白色环”生成阈值（相遇浓度）</label>
+    <input id="ringThresh" type="range" min="1" max="20" step="1" value="8" />
+    <div class="tiny">阈值：<span id="ringThreshVal" class="mono"></span>（越小越容易生成环）</div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="btnStart">开始</button>
+      <button id="btnPause" class="secondary">暂停</button>
+      <button id="btnReset" class="secondary">重置</button>
+    </div>
+
+    <div class="kpi">
+      <div class="k">
+        <div class="t">理论扩散速率比（左/右）</div>
+        <div class="v mono" id="ratioTheo">—</div>
+      </div>
+      <div class="k">
+        <div class="t">理论相遇点（距左端）</div>
+        <div class="v mono" id="meetTheo">—</div>
+      </div>
+      <div class="k">
+        <div class="t">模拟相遇点（白环中心）</div>
+        <div class="v mono" id="meetSim">—</div>
+      </div>
+      <div class="k">
+        <div class="t">运行时间</div>
+        <div class="v mono" id="timeRun">0.0 s</div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:10px">
+      <b>说明：</b><br/>
+      1）格雷姆定律：<span class="mono">v ∝ 1/√M</span>。这里用 <span class="mono">D ∝ 1/√M</span> 近似扩散快慢。<br/>
+      2）“白环”是示意：当同一位置左右两种粒子同时较多，认为生成 NH₄Cl 固体沉积。<br/>
+      3）适合课堂演示“为什么白环偏向 HCl 侧”与“质量小扩散快”。<br/>
+    </div>
+  </section>
+
+  <section class="card">
+    <canvas id="cv" width="1200" height="360"></canvas>
+    <div class="tiny" style="margin-top:10px;opacity:.9">
+      视图：上方为玻璃管；彩色点为气体粒子；白色竖条/淡白区域为“白环沉积”。底部刻度以 cm 标示（按设定长度缩放）。
+    </div>
+  </section>
+</main>
+
+<script>
+  // ---- 气体库：相对分子质量（近似） ----
+  const GASES = [
+    { key:"NH3", name:"氨气 NH₃", M:17, color:"#5eead4" },
+    { key:"HCl", name:"氯化氢 HCl", M:36.5, color:"#f472b6" },
+    { key:"H2",  name:"氢气 H₂", M:2, color:"#a7f3d0" },
+    { key:"O2",  name:"氧气 O₂", M:32, color:"#93c5fd" },
+    { key:"CO2", name:"二氧化碳 CO₂", M:44, color:"#fca5a5" },
+    { key:"Cl2", name:"氯气 Cl₂", M:71, color:"#fde68a" },
+    { key:"N2",  name:"氮气 N₂", M:28, color:"#c4b5fd" },
+    { key:"He",  name:"氦气 He", M:4, color:"#fef08a" }
+  ];
+
+  const $ = (id)=>document.getElementById(id);
+
+  const gasL = $("gasL"), gasR = $("gasR");
+  const tubeLen = $("tubeLen"), nParticles = $("nParticles");
+  const diffScale = $("diffScale"), diffScaleVal = $("diffScaleVal");
+  const ringThresh = $("ringThresh"), ringThreshVal = $("ringThreshVal");
+
+  const ratioTheo = $("ratioTheo"), meetTheo = $("meetTheo"), meetSim = $("meetSim"), timeRun = $("timeRun");
+  const btnStart = $("btnStart"), btnPause = $("btnPause"), btnReset = $("btnReset");
+
+  const cv = $("cv");
+  const ctx = cv.getContext("2d");
+
+  // populate selects
+  for (const g of GASES){
+    const o1 = document.createElement("option");
+    o1.value = g.key; o1.textContent = g.name;
+    gasL.appendChild(o1);
+    const o2 = document.createElement("option");
+    o2.value = g.key; o2.textContent = g.name;
+    gasR.appendChild(o2);
+  }
+  gasL.value = "NH3";
+  gasR.value = "HCl";
+
+  function getGas(key){ return GASES.find(g=>g.key===key); }
+
+  // ---- 模拟参数 ----
+  let running = false;
+  let t0 = null;
+  let elapsed = 0;
+
+  // 1D tube along x (0..1), y only for display jitter
+  let leftParticles = [];
+  let rightParticles = [];
+  let deposits = [];  // ring deposition per bin
+  const NBINS = 240;  // resolution along tube
+  let lastMeetSim = null;
+
+  function resetSim(){
+    running = false;
+    t0 = null;
+    elapsed = 0;
+    timeRun.textContent = "0.0 s";
+    lastMeetSim = null;
+    meetSim.textContent = "—";
+
+    const L = Math.max(30, Math.min(200, Number(tubeLen.value || 120)));
+    tubeLen.value = L;
+
+    const N = Math.max(50, Math.min(1500, Number(nParticles.value || 450)));
+    nParticles.value = N;
+
+    leftParticles = [];
+    rightParticles = [];
+    for (let i=0;i<N;i++){
+      leftParticles.push({ x: randn_clamped(0.02, 0.01, 0, 1), y: Math.random() });
+      rightParticles.push({ x: randn_clamped(0.98, 0.01, 0, 1), y: Math.random() });
+    }
+    deposits = new Array(NBINS).fill(0);
+
+    updateTheory();
+    draw();
+  }
+
+  function updateTheory(){
+    const gL = getGas(gasL.value);
+    const gR = getGas(gasR.value);
+
+    // Graham: v ∝ 1/sqrt(M) => vL/vR = sqrt(MR/ML)
+    const ratio = Math.sqrt(gR.M / gL.M);
+    ratioTheo.textContent = ratio.toFixed(3);
+
+    // meeting point in tube length L:
+    // distances traveled in same time proportional to speeds:
+    // dL : dR = vL : vR = ratio : 1, and dL + dR = L
+    // dL = (ratio/(ratio+1))*L
+    const Lcm = Number(tubeLen.value);
+    const dL = (ratio / (ratio + 1)) * Lcm;
+    meetTheo.textContent = `${dL.toFixed(1)} cm`;
+  }
+
+  function randn(){
+    // Box-Muller
+    let u=0,v=0;
+    while(u===0) u=Math.random();
+    while(v===0) v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function randn_clamped(mean, sd, lo, hi){
+    let x = mean + sd*randn();
+    if (x<lo) x=lo;
+    if (x>hi) x=hi;
+    return x;
+  }
+
+  function step(dt){
+    const gL = getGas(gasL.value);
+    const gR = getGas(gasR.value);
+
+    const scale = Number(diffScale.value);
+    diffScaleVal.textContent = scale.toFixed(1);
+
+    const D_L = scale / Math.sqrt(gL.M);
+    const D_R = scale / Math.sqrt(gR.M);
+
+    // Random walk step ~ sqrt(2D dt) ; dt in seconds (small)
+    const sL = Math.sqrt(2 * D_L * dt) * 0.08; // 0.08 is visual/tuning factor
+    const sR = Math.sqrt(2 * D_R * dt) * 0.08;
+
+    // reflect at boundaries
+    for (const p of leftParticles){
+      p.x += sL * randn();
+      if (p.x<0){ p.x = -p.x; }
+      if (p.x>1){ p.x = 2 - p.x; }
+      p.y += 0.25*(Math.random()-0.5);
+      if (p.y<0) p.y=0;
+      if (p.y>1) p.y=1;
+    }
+    for (const p of rightParticles){
+      p.x += sR * randn();
+      if (p.x<0){ p.x = -p.x; }
+      if (p.x>1){ p.x = 2 - p.x; }
+      p.y += 0.25*(Math.random()-0.5);
+      if (p.y<0) p.y=0;
+      if (p.y>1) p.y=1;
+    }
+
+    // build concentration bins and deposit ring where both present
+    const binsL = new Array(NBINS).fill(0);
+    const binsR = new Array(NBINS).fill(0);
+    for (const p of leftParticles){
+      const b = Math.max(0, Math.min(NBINS-1, Math.floor(p.x * NBINS)));
+      binsL[b]++;
+    }
+    for (const p of rightParticles){
+      const b = Math.max(0, Math.min(NBINS-1, Math.floor(p.x * NBINS)));
+      binsR[b]++;
+    }
+
+    const thresh = Number(ringThresh.value);
+    ringThreshVal.textContent = String(thresh);
+
+    let bestBin = -1;
+    let bestVal = 0;
+
+    for (let i=0;i<NBINS;i++){
+      const overlap = Math.min(binsL[i], binsR[i]); // overlap proxy
+      if (overlap >= thresh){
+        deposits[i] += overlap * 0.02; // accumulate
+      }
+      // track where overlap is maximal (to estimate meet point)
+      if (overlap > bestVal){
+        bestVal = overlap;
+        bestBin = i;
+      }
+    }
+
+    if (bestBin>=0 && bestVal>0){
+      const x01 = (bestBin + 0.5)/NBINS;
+      const Lcm = Number(tubeLen.value);
+      const xcm = x01 * Lcm;
+      lastMeetSim = xcm;
+      meetSim.textContent = `${xcm.toFixed(1)} cm`;
+    }
+  }
+
+  function draw(){
+    const gL = getGas(gasL.value);
+    const gR = getGas(gasR.value);
+    const W = cv.width, H = cv.height;
+
+    ctx.clearRect(0,0,W,H);
+
+    // tube frame
+    const pad = 60;
+    const tubeY = 70;
+    const tubeH = 120;
+    const tubeX0 = pad;
+    const tubeX1 = W - pad;
+    const tubeW = tubeX1 - tubeX0;
+
+    // background
+    ctx.fillStyle = "#070a0f";
+    ctx.fillRect(0,0,W,H);
+
+    // tube outline
+    ctx.strokeStyle = "#2b3a50";
+    ctx.lineWidth = 3;
+    roundRect(ctx, tubeX0, tubeY, tubeW, tubeH, 18);
+    ctx.stroke();
+
+    // labels
+    ctx.fillStyle = "#cfe3ff";
+    ctx.font = "16px system-ui";
+    ctx.fillText(`左端：${gL.name} (M=${gL.M})`, tubeX0, 32);
+    ctx.fillText(`右端：${gR.name} (M=${gR.M})`, tubeX0 + tubeW/2, 32);
+
+    // deposits (white ring)
+    for (let i=0;i<NBINS;i++){
+      const dep = deposits[i];
+      if (dep<=0) continue;
+      const x = tubeX0 + (i/NBINS)*tubeW;
+      const alpha = Math.min(0.75, dep/20);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fillRect(x, tubeY+8, tubeW/NBINS+1, tubeH-16);
+    }
+
+    // particles
+    const r = 2.0;
+    // left
+    ctx.fillStyle = gL.color;
+    for (const p of leftParticles){
+      const x = tubeX0 + p.x * tubeW;
+      const y = tubeY + 10 + p.y * (tubeH - 20);
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fill();
+    }
+    // right
+    ctx.fillStyle = gR.color;
+    for (const p of rightParticles){
+      const x = tubeX0 + p.x * tubeW;
+      const y = tubeY + 10 + p.y * (tubeH - 20);
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // scale (cm)
+    const Lcm = Number(tubeLen.value);
+    ctx.strokeStyle = "#1c2633";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(tubeX0, tubeY + tubeH + 30);
+    ctx.lineTo(tubeX1, tubeY + tubeH + 30);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(231,238,247,.85)";
+    ctx.font = "12px system-ui";
+
+    const ticks = 12; // show 0..L in 12 segments
+    for (let i=0;i<=ticks;i++){
+      const x = tubeX0 + (i/ticks)*tubeW;
+      ctx.beginPath();
+      ctx.moveTo(x, tubeY + tubeH + 26);
+      ctx.lineTo(x, tubeY + tubeH + 34);
+      ctx.strokeStyle = "#2b3a50";
+      ctx.stroke();
+      const val = (i/ticks)*Lcm;
+      ctx.fillText(`${Math.round(val)}`, x-6, tubeY + tubeH + 52);
+    }
+    ctx.fillText("cm", tubeX1+8, tubeY + tubeH + 52);
+
+    // theoretical meeting marker
+    const ratio = Math.sqrt(gR.M / gL.M);
+    const dLcm = (ratio/(ratio+1))*Lcm;
+    const xTheo = tubeX0 + (dLcm/Lcm)*tubeW;
+    ctx.strokeStyle = "rgba(42,109,244,.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(xTheo, tubeY-8);
+    ctx.lineTo(xTheo, tubeY+tubeH+8);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(42,109,244,.9)";
+    ctx.fillText("理论相遇点", xTheo-30, tubeY-14);
+
+    // simulated meeting marker
+    if (lastMeetSim!=null){
+      const xSim = tubeX0 + (lastMeetSim/Lcm)*tubeW;
+      ctx.strokeStyle = "rgba(255,255,255,.8)";
+      ctx.setLineDash([6,4]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(xSim, tubeY-8);
+      ctx.lineTo(xSim, tubeY+tubeH+8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      ctx.fillText("模拟相遇点", xSim-30, tubeY+tubeH+26);
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  }
+
+  function loop(ts){
+    if (!running){
+      requestAnimationFrame(loop);
+      return;
+    }
+    if (t0===null) t0 = ts;
+    const dt = Math.min(0.033, (ts - t0)/1000); // cap dt ~33ms
+    t0 = ts;
+
+    elapsed += dt;
+    timeRun.textContent = `${elapsed.toFixed(1)} s`;
+
+    // simulate multiple substeps for smoother diffusion
+    const sub = 2;
+    for (let i=0;i<sub;i++) step(dt/sub);
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // UI bindings
+  diffScale.addEventListener("input", ()=>{ diffScaleVal.textContent = Number(diffScale.value).toFixed(1); });
+  ringThresh.addEventListener("input", ()=>{ ringThreshVal.textContent = String(Number(ringThresh.value)); });
+
+  gasL.addEventListener("change", ()=>{ updateTheory(); });
+  gasR.addEventListener("change", ()=>{ updateTheory(); });
+
+  btnStart.addEventListener("click", ()=>{
+    if (!running){
+      running = true;
+      t0 = null;
+    }
+  });
+  btnPause.addEventListener("click", ()=>{ running = false; t0 = null; });
+  btnReset.addEventListener("click", ()=>{ resetSim(); });
+
+  // init
+  diffScaleVal.textContent = Number(diffScale.value).toFixed(1);
+  ringThreshVal.textContent = String(Number(ringThresh.value));
+  resetSim();
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>

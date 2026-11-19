@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>缓冲溶液模拟器｜化学课堂</title>
+<style>
+:root{
+  --bg:#f4f7fb;--card:#fff;--ink:#17324d;--muted:#6b7c8f;--line:#dfe7ef;
+  --blue:#2878ff;--red:#ef5366;--green:#19a974;--orange:#f2a93b;--purple:#7856d6;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Microsoft YaHei",Arial,sans-serif}
+header{padding:22px 28px 16px;background:linear-gradient(135deg,#ffffff,#eef5ff);border-bottom:1px solid var(--line)}
+header h1{margin:0 0 5px;font-size:27px} header p{margin:0;color:var(--muted)}
+.wrap{max-width:1280px;margin:auto;padding:18px}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 5px 18px rgba(28,60,90,.06);padding:17px}
+.card h2{font-size:17px;margin:0 0 13px}.small{font-size:12px;color:var(--muted)}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+label{font-size:13px;color:#40566b;display:block;margin-bottom:5px}
+select,input{width:100%;border:1px solid #cbd7e3;border-radius:9px;padding:9px;background:#fff;color:var(--ink);font-size:14px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+button{border:0;border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer}
+.btn-blue{background:var(--blue);color:#fff}.btn-red{background:#fff0f2;color:#c52e43;border:1px solid #f3c2ca}.btn-gray{background:#eef2f6;color:#40566b}
+.btn-green{background:#e9f8f2;color:#0c7e55;border:1px solid #bce8d6}
+.beaker-wrap{height:390px;display:flex;justify-content:center;align-items:flex-end;background:linear-gradient(#fbfdff,#f2f7fb);border-radius:13px;position:relative;overflow:hidden}
+.beaker{width:310px;height:290px;border:5px solid rgba(93,130,160,.45);border-top:0;border-radius:0 0 28px 28px;position:relative;overflow:hidden;background:rgba(220,240,250,.17)}
+.liquid{position:absolute;left:0;right:0;bottom:0;height:35%;background:rgba(103,190,232,.18);border-top:2px solid rgba(70,150,195,.35)}
+.scale{position:absolute;right:8px;top:45px;display:grid;gap:42px;color:#7b8fa3;font-size:10px}
+.particles{position:absolute;left:8px;right:8px;bottom:12px;top:15px;pointer-events:none;overflow:hidden}
+.particle{position:absolute;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.05);will-change:transform;transition:background .25s ease}
+.particle::after{content:"";position:absolute;inset:-3px;border-radius:50%;background:inherit;opacity:.08}
+@keyframes gentlePulse{0%,100%{opacity:.88}50%{opacity:1}}
+.particle{animation:gentlePulse 2.2s ease-in-out infinite}
+.legend{display:flex;gap:14px;justify-content:center;margin-top:10px;font-size:12px;color:#566b7e;flex-wrap:wrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.stat{background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:20px;margin-top:3px}
+.pH{font-size:52px;font-weight:800;line-height:1;color:#17324d}.pHlabel{color:var(--muted);font-size:13px}
+.meter{height:12px;border-radius:20px;background:linear-gradient(90deg,#d83a5c,#e99d3c,#72b84b,#4c9ee8,#6d63d9);position:relative;margin:10px 0 3px}
+.marker{position:absolute;top:-5px;width:3px;height:22px;background:#142b40;border-radius:2px;transform:translateX(-50%)}
+.equation{background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:11px;font-family:Georgia,serif;text-align:center;font-size:17px;margin-top:12px}
+.callout{margin-top:10px;padding:10px 12px;border-radius:10px;background:#fff8e8;border:1px solid #f3dfaa;color:#745a20;font-size:13px;line-height:1.55}
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.addbox{padding:12px;border:1px solid var(--line);border-radius:12px}.addbox h3{font-size:14px;margin:0 0 8px}.addbox.acid{border-top:4px solid var(--red)}.addbox.base{border-top:4px solid var(--blue)}
+.sliderline{display:grid;grid-template-columns:1fr 78px;gap:8px;align-items:center}
+input[type=range]{padding:0}
+.kpi{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px dashed #d9e1e9}.kpi:last-child{border:0}
+.bar{height:9px;background:#e9eef3;border-radius:10px;overflow:hidden}.bar>i{display:block;height:100%;border-radius:10px;background:var(--green)}
+.canvas{width:100%;height:250px;border:1px solid var(--line);border-radius:11px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}th,td{padding:7px;border-bottom:1px solid var(--line);text-align:left}th{background:#f7f9fc}
+.footer{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.statgrid{grid-template-columns:1fr 1fr}.controls{grid-template-columns:1fr}.addgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🧪 缓冲溶液模拟器</h1>
+    <p>课堂演示：观察加入少量强酸 / 强碱时，缓冲体系如何通过平衡移动抵抗 pH 剧烈变化。</p>
+  </div>
+</header>
+
+<main class="wrap">
+<div class="grid">
+<section class="card">
+  <h2>① 选择缓冲体系与初始组成</h2>
+  <div class="controls">
+    <div><label>缓冲体系</label>
+      <select id="system">
+        <option value="acetic">乙酸 / 乙酸根　pKa = 4.76</option>
+        <option value="lactic">乳酸 / 乳酸根　pKa ≈ 3.86</option>
+        <option value="benzoic">苯甲酸 / 苯甲酸根　pKa ≈ 4.20</option>
+        <option value="ammonia">铵根 / 氨　pKa(NH₄⁺) ≈ 9.25</option>
+      </select>
+    </div>
+    <div><label>初始总体积 V₀（mL）</label><input id="vol" type="number" min="1" step="1" value="100"></div>
+    <div><label id="acidLabel">弱酸 HA 的浓度（mol/L）</label><input id="acidC" type="number" min="0" step="0.001" value="0.50"></div>
+    <div><label id="baseLabel">共轭碱 A⁻ 的浓度（mol/L）</label><input id="baseC" type="number" min="0" step="0.001" value="0.50"></div>
+  </div>
+  <div class="row" style="margin-top:11px">
+    <button class="btn-blue" id="preset">恢复等浓度 0.50 M</button>
+    <button class="btn-gray" id="reset">重置实验</button>
+  </div>
+
+  <div class="beaker-wrap" style="margin-top:14px">
+    <div class="scale"><span>100 mL</span><span>75 mL</span><span>50 mL</span><span>25 mL</span></div>
+    <div class="beaker">
+      <div class="liquid" id="liquid"></div>
+      <div class="particles" id="particles"></div>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+
+  <div class="statgrid">
+    <div class="stat"><span class="small">当前体积</span><b id="vNow">100</b><span class="small">mL</span></div>
+    <div class="stat"><span class="small">pH</span><b id="pHstat">4.76</b></div>
+    <div class="stat"><span class="small">弱酸/共轭酸</span><b id="haStat">50</b><span class="small">mmol</span></div>
+    <div class="stat"><span class="small">共轭碱/碱</span><b id="aStat">50</b><span class="small">mmol</span></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>② 实时 pH 与缓冲机理</h2>
+  <div class="pHlabel">当前 pH</div><div class="pH" id="pHbig">4.76</div>
+  <div class="meter"><i class="marker" id="marker"></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>0 强酸</span><span>7 中性</span><span>14 强碱</span></div>
+
+  <div class="equation" id="eq">pH ≈ pKa + log(n(A⁻) / n(HA))</div>
+  <div class="equation" id="eqCalc" style="margin-top:8px;background:#eef6ff;border-color:#cfe1ff;font-size:16px">当前带入：pH ≈ 4.76 + log(50.0 / 50.0) = 4.760</div>
+  <div class="callout" id="explain">当加入少量 HCl 时，A⁻ 消耗 H⁺ 生成 HA；当加入少量 NaOH 时，HA 消耗 OH⁻ 生成 A⁻。因此 pH 仍会变化，但变化比没有缓冲体系时小得多。</div>
+
+  <div style="margin-top:13px">
+    <div class="kpi"><span>缓冲对比值</span><b id="ratio">1.00 : 1</b></div>
+    <div class="kpi"><span>总缓冲物质的量</span><b id="total">100.0 mmol</b></div>
+    <div class="kpi"><span>有效缓冲区（经验范围）</span><b id="range">pKa ± 1</b></div>
+    <div class="kpi"><span>当前状态</span><b id="state">缓冲能力较强</b></div>
+  </div>
+
+  <h2 style="margin-top:17px">③ 加入强酸 / 强碱</h2>
+  <div class="addgrid">
+    <div class="addbox acid">
+      <h3>🔴 加入 HCl（强酸）</h3>
+      <label>浓度（mol/L）</label><input id="hclC" type="number" min="0.001" step="0.01" value="0.10">
+      <label style="margin-top:7px">每次滴入体积（mL）</label>
+      <div class="sliderline"><input id="hclV" type="range" min="0" max="50" step="0.5" value="0"><input id="hclVnum" type="number" min="0" max="50" step="0.5" value="0"></div>
+      <button class="btn-red" style="width:100%;margin-top:8px" id="addHCl">滴入一次 HCl</button>
+    </div>
+    <div class="addbox base">
+      <h3>🔵 加入 NaOH（强碱）</h3>
+      <label>浓度（mol/L）</label><input id="naohC" type="number" min="0.001" step="0.01" value="0.10">
+      <label style="margin-top:7px">每次滴入体积（mL）</label>
+      <div class="sliderline"><input id="naohV" type="range" min="0" max="50" step="0.5" value="0"><input id="naohVnum" type="number" min="0" max="50" step="0.5" value="0"></div>
+      <button class="btn-blue" style="width:100%;margin-top:8px" id="addNaOH">滴入一次 NaOH</button>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>④ pH—加入体积曲线</h2>
+  <canvas id="chart" class="canvas"></canvas>
+  <div class="small" style="margin-top:7px">曲线记录本次实验中每一次加酸/加碱后的 pH；可用于讨论“为什么缓冲溶液的 pH 只发生小幅变化”。</div>
+</section>
+
+<section class="card">
+  <h2>⑤ 课堂观察记录</h2>
+  <table>
+    <thead><tr><th>操作</th><th>加入量</th><th>pH</th><th>主要变化</th></tr></thead>
+    <tbody id="log"></tbody>
+  </table>
+  <div class="callout" id="reactionBox">
+    <b>关键反应：</b> HA + OH⁻ → A⁻ + H₂O　；　A⁻ + H₃O⁺ → HA + H₂O
+  </div>
+</section>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>教师讲解提示</h2>
+  <div class="footer">
+    <b>核心原理：</b>缓冲溶液通常由弱酸 HA 及其共轭碱 A⁻（或弱碱 B 及其共轭酸 BH⁺）组成。
+    加入少量强酸时，体系中的共轭碱优先消耗 H⁺；加入少量强碱时，弱酸/共轭酸优先消耗 OH⁻。
+    因而平衡组成发生改变，而 pH 只发生相对较小的变化。<br>
+    <b>计算：</b>模拟器在加入强酸/强碱后，先按化学计量关系处理中和，再根据酸解离平衡与水的自解离求解 pH；在通常缓冲区也显示 Henderson–Hasselbalch 关系 pH ≈ pKa + log(n<sub>base</sub>/n<sub>acid</sub>)。
+    当某一组分被耗尽或体系远离缓冲区时，不再把 Henderson–Hasselbalch 公式当作唯一计算依据。
+  </div>
+</div>
+</main>
+
+<script>
+const systems={
+  acetic:{name:"乙酸/乙酸根",acid:"HA（乙酸）",base:"A⁻（乙酸根）",pKa:4.76,ka:Math.pow(10,-4.76),acidColor:"#ef5366",baseColor:"#2878ff",kind:"acid",
+    reaction:"HA + OH⁻ → A⁻ + H₂O　；　A⁻ + H₃O⁺ → HA + H₂O"},
+  lactic:{name:"乳酸/乳酸根",acid:"HA（乳酸）",base:"A⁻（乳酸根）",pKa:3.86,ka:Math.pow(10,-3.86),acidColor:"#ef5366",baseColor:"#2878ff",kind:"acid",
+    reaction:"HA + OH⁻ → A⁻ + H₂O　；　A⁻ + H₃O⁺ → HA + H₂O"},
+  benzoic:{name:"苯甲酸/苯甲酸根",acid:"HA（苯甲酸）",base:"A⁻（苯甲酸根）",pKa:4.20,ka:Math.pow(10,-4.20),acidColor:"#ef5366",baseColor:"#2878ff",kind:"acid",
+    reaction:"HA + OH⁻ → A⁻ + H₂O　；　A⁻ + H₃O⁺ → HA + H₂O"},
+  ammonia:{name:"铵根/氨",acid:"BH⁺（铵根）",base:"B（氨）",pKa:9.25,ka:Math.pow(10,-9.25),acidColor:"#7856d6",baseColor:"#19a974",kind:"base",
+    reaction:"BH⁺ + OH⁻ → B + H₂O　；　B + H₃O⁺ → BH⁺ + H₂O"}
+};
+let sys=systems.acetic;
+let state={Vml:100,nAcid:0.05,nBase:0.05,Na:0.05,Cl:0,points:[{x:0,y:4.76,op:"初始"}],logs:[]};
+
+const $=id=>document.getElementById(id);
+function molFromC(c,ml){return Number(c)*Number(ml)/1000;}
+function solvePH(){
+  const V=state.Vml/1000, Na=state.Na/V, Cl=state.Cl/V;
+  const C=(state.nAcid+state.nBase)/V;
+  const Ka=sys.ka, Kw=1e-14;
+  let lo=1e-14, hi=1; // H concentration
+  function f(H){
+    const OH=Kw/H;
+    if(sys.kind==="acid"){
+      const A=C*Ka/(Ka+H);
+      return H+Na-OH-A-Cl;
+    }else{
+      const BH=C*H/(Ka+H);
+      return H+Na+BH-OH-Cl;
+    }
+  }
+  // f increases with H for acid, but base may too; bracket scan logarithmically for a sign change.
+  let prevH=lo, prev=f(prevH), found=false, a=lo,b=hi;
+  for(let i=1;i<=1000;i++){
+    const h=1e-14*Math.pow(1e14,i/1000);
+    const val=f(h);
+    if((prev<=0&&val>=0)||(prev>=0&&val<=0)){a=prevH;b=h;found=true;break;}
+    prevH=h;prev=val;
+  }
+  if(!found) return 7;
+  for(let i=0;i<100;i++){const m=Math.sqrt(a*b), fm=f(m); if((f(a)<=0&&fm>=0)||(f(a)>=0&&fm<=0))b=m;else a=m;}
+  return Math.max(0,Math.min(14,-Math.log10(Math.sqrt(a*b))));
+}
+function initialCharge(){
+  if(sys.kind==="acid"){state.Na=state.nBase;state.Cl=0;}
+  else {state.Na=0;state.Cl=state.nAcid;}
+}
+function setInitial(){
+  state.Vml=+$("vol").value||100;
+  state.nAcid=molFromC($("acidC").value,state.Vml);
+  state.nBase=molFromC($("baseC").value,state.Vml);
+  initialCharge();
+  const ph=solvePH();
+  state.points=[{x:0,y:ph,op:"初始"}]; state.logs=[];
+  syncAddInputs(); render();
+}
+function addStrong(type){
+  const c=+(type==="acid"?$("hclC").value:$("naohC").value)||0;
+  const ml=+(type==="acid"?$("hclVnum").value:$("naohVnum").value)||0;
+  if(ml<=0||c<=0)return;
+  const n=c*ml/1000;
+  if(sys.kind==="acid"){
+    if(type==="acid"){ // A- + H+
+      const reacted=Math.min(n,state.nBase); state.nBase-=reacted; state.nAcid+=reacted;
+      state.Cl+=n; state.Vml+=ml; // Na remains fixed; excess H+ is handled by equilibrium
+    }else{ // HA + OH-
+      const reacted=Math.min(n,state.nAcid); state.nAcid-=reacted; state.nBase+=reacted;
+      state.Na+=n; state.Vml+=ml;
+    }
+  }else{
+    if(type==="acid"){ // B + H+
+      const reacted=Math.min(n,state.nBase); state.nBase-=reacted; state.nAcid+=reacted;
+      state.Cl+=n; state.Vml+=ml;
+    }else{ // BH+ + OH-
+      const reacted=Math.min(n,state.nAcid); state.nAcid-=reacted; state.nBase+=reacted;
+      state.Na+=n; state.Vml+=ml;
+    }
+  }
+  const ph=solvePH();
+  state.points.push({x:(state.Vml-100),y:ph,op:type==="acid"?`HCl ${ml} mL`:`NaOH ${ml} mL`});
+  state.logs.unshift({op:type==="acid"?"滴入 HCl":"滴入 NaOH",amt:`${ml} mL × ${c} M`,ph});
+  if(state.logs.length>8)state.logs.pop();
+  // 保留“每次滴入体积”，连续点击即可重复滴入相同体积。
+  render();
+}
+function fmt(n,d=2){return Number(n).toFixed(d);}
+function render(){
+  const ph=solvePH(), ratio=state.nAcid>0?state.nBase/state.nAcid:Infinity;
+  $("pHbig").textContent=fmt(ph,3);$("pHstat").textContent=fmt(ph,3);
+  $("vNow").textContent=fmt(state.Vml,1);
+  $("haStat").textContent=fmt(state.nAcid*1000,1);$("aStat").textContent=fmt(state.nBase*1000,1);
+  $("ratio").textContent=ratio===Infinity?"∞ : 1":`${fmt(ratio,2)} : 1`;
+  $("total").textContent=fmt((state.nAcid+state.nBase)*1000,1)+" mmol";
+  $("marker").style.left=(Math.max(0,Math.min(14,ph))/14*100)+"%";
+  $("liquid").style.height=Math.min(86,25+state.Vml/2.7)+"%";
+  const r=Math.min(1,Math.abs(ph-sys.pKa)); $("state").textContent=
+    (state.nAcid>0&&state.nBase>0&&r<=1)?"处于主要缓冲区":"缓冲能力下降：某组分偏低";
+  $("eq").innerHTML=sys.kind==="acid"
+    ?`pH ≈ pKa + log( <span style="color:${sys.baseColor};font-weight:bold">n(A⁻)</span> / <span style="color:${sys.acidColor};font-weight:bold">n(HA)</span> )`
+    :`pH ≈ pKa + log( <span style="color:${sys.baseColor};font-weight:bold">n(B)</span> / <span style="color:${sys.acidColor};font-weight:bold">n(BH⁺)</span> )`;
+  const acidName=sys.kind==="acid"?"n(HA)":"n(BH⁺)";
+  const baseName=sys.kind==="acid"?"n(A⁻)":"n(B)";
+  const acidM=state.nAcid*1000, baseM=state.nBase*1000;
+  const approx=acidM>0&&baseM>0?sys.pKa+Math.log10(baseM/acidM):NaN;
+  $("eqCalc").innerHTML=(acidM>0&&baseM>0)
+    ?`当前带入：pH ≈ ${fmt(sys.pKa,2)} + log(<span style="color:${sys.baseColor};font-weight:700">${fmt(baseM,1)}</span> / <span style="color:${sys.acidColor};font-weight:700">${fmt(acidM,1)}</span>) = <b>${fmt(approx,3)}</b><br><span class="small">${baseName} = ${fmt(baseM,1)} mmol；${acidName} = ${fmt(acidM,1)} mmol（近似式；右上角 pH 为平衡计算值）</span>`
+    :`当前带入：${baseName} 或 ${acidName} 已接近 0，Henderson–Hasselbalch 近似不再适用。`;
+  $("reactionBox").innerHTML="<b>关键反应：</b> "+sys.reaction;
+  $("range").textContent=`${fmt(sys.pKa-1,2)} ～ ${fmt(sys.pKa+1,2)}`;
+  $("explain").innerHTML = sys.kind==="acid"
+    ? `加入少量 <b>HCl</b>：A⁻ + H₃O⁺ → HA + H₂O；加入少量 <b>NaOH</b>：HA + OH⁻ → A⁻ + H₂O。<br>本模拟按物质的量先处理强酸/强碱的中和，再求解平衡 pH。`
+    : `加入少量 <b>HCl</b>：B + H₃O⁺ → BH⁺ + H₂O；加入少量 <b>NaOH</b>：BH⁺ + OH⁻ → B + H₂O。<br>本模拟按物质的量先处理强酸/强碱的中和，再求解平衡 pH。`;
+  renderParticles(); renderLog(); drawChart();
+}
+let particleMotion=[];
+let particleAnimationStarted=false;
+
+function particleBounds(){
+  // 粒子只能存在于“液体”的实际区域内，绝不进入液面以上的空气区。
+  // 使用两个元素的真实屏幕坐标计算相对位置，避免百分比高度造成坐标误差。
+  const box=$("particles"), liquid=$("liquid");
+  const br=box.getBoundingClientRect();
+  const lr=liquid.getBoundingClientRect();
+  const radius=4.5;
+  const left=radius+2;
+  const right=Math.max(left,br.width-radius-2);
+  const top=Math.max(0,lr.top-br.top+radius+1);
+  const bottom=Math.min(br.height,lr.bottom-br.top-radius-1);
+  return {left,right,top:Math.min(top,bottom),bottom:Math.max(top,bottom)};
+}
+
+function renderParticles(){
+  const box=$("particles");box.innerHTML="";particleMotion=[];
+  const total=Math.max(state.nAcid+state.nBase,1e-9);
+  let N=Math.min(44,Math.max(16,Math.round(total*1000/2.5)));
+  const b=particleBounds();
+  for(let i=0;i<N;i++){
+    const useBase=(i/N)<state.nBase/total;
+    const d=document.createElement("i");d.className="particle";
+    d.style.background=useBase?sys.baseColor:sys.acidColor;
+    const x=b.left+Math.random()*Math.max(1,b.right-b.left);
+    const y=b.top+Math.random()*Math.max(1,b.bottom-b.top);
+    const speed=.18+Math.random()*.34;
+    const angle=Math.random()*Math.PI*2;
+    particleMotion.push({el:d,x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,phase:Math.random()*10});
+    d.style.transform=`translate(${x}px,${y}px)`;
+    box.appendChild(d);
+  }
+  $("legend").innerHTML=`<span><i class="dot" style="background:${sys.acidColor}"></i>${sys.acid}</span><span><i class="dot" style="background:${sys.baseColor}"></i>${sys.base}</span>`;
+  startParticleAnimation();
+}
+
+function startParticleAnimation(){
+  if(particleAnimationStarted)return;
+  particleAnimationStarted=true;
+  let last=performance.now();
+  function tick(now){
+    const dt=Math.min(32,now-last); last=now;
+    const b=particleBounds();
+    for(const p of particleMotion){
+      // 轻微随机扰动，模拟溶液中粒子的无规则热运动（布朗运动）。
+      // 每一帧重新读取液面位置，因此液面变化时粒子也会被限制在水中。
+      p.phase+=dt*.001;
+      p.vx+=(Math.random()-.5)*.012;
+      p.vy+=(Math.random()-.5)*.012;
+      const sp=Math.hypot(p.vx,p.vy)||.25;
+      const target=.22+((Math.sin(p.phase*1.7)+1)/2)*.22;
+      p.vx*=.985; p.vy*=.985;
+      p.vx+=(p.vx/sp)*(target-sp)*.012;
+      p.vy+=(p.vy/sp)*(target-sp)*.012;
+      p.x+=p.vx*dt; p.y+=p.vy*dt;
+      const r=5;
+      if(p.x<b.left+r){p.x=b.left+r;p.vx=Math.abs(p.vx)}
+      if(p.x>b.right-r){p.x=b.right-r;p.vx=-Math.abs(p.vx)}
+      if(p.y<b.top+r){p.y=b.top+r;p.vy=Math.abs(p.vy)}
+      if(p.y>b.bottom-r){p.y=b.bottom-r;p.vy=-Math.abs(p.vy)}
+      p.el.style.transform=`translate(${p.x-r}px,${p.y-r}px)`;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+function renderLog(){
+  $("log").innerHTML=state.logs.map(x=>`<tr><td>${x.op}</td><td>${x.amt}</td><td><b>${fmt(x.ph,3)}</b></td><td>${x.op.includes("HCl")?(sys.kind==="acid"?"A⁻ → HA":"B → BH⁺"):(sys.kind==="acid"?"HA → A⁻":"BH⁺ → B")}</td></tr>`).join("")||
+  `<tr><td>初始</td><td>—</td><td><b>${fmt(solvePH(),2)}</b></td><td>缓冲体系建立</td></tr>`;
+}
+function drawChart(){
+  const c=$("chart"),ctx=c.getContext("2d"),dpr=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;
+  c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const L=42,R=15,T=18,B=31,pw=w-L-R,ph=h-T-B;
+  ctx.strokeStyle="#dfe7ef";ctx.lineWidth=1;
+  for(let p=0;p<=14;p+=2){let y=T+ph*(1-p/14);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(w-R,y);ctx.stroke();ctx.fillStyle="#6b7c8f";ctx.font="10px Arial";ctx.fillText(p,L-28,y+3);}
+  const maxX=Math.max(10, ...state.points.map(q=>q.x))*1.05;
+  ctx.beginPath();state.points.forEach((q,i)=>{let x=L+q.x/maxX*pw,y=T+ph*(1-q.y/14);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle="#2878ff";ctx.lineWidth=2.5;ctx.stroke();
+  state.points.forEach(q=>{let x=L+q.x/maxX*pw,y=T+ph*(1-q.y/14);ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle="#17324d";ctx.fill();});
+  ctx.fillStyle="#6b7c8f";ctx.font="11px Arial";ctx.fillText("加入体积（mL）",w/2-35,h-8);
+}
+function syncAddInputs(){
+  $("hclV").oninput=()=>$("hclVnum").value=$("hclV").value;
+  $("hclVnum").oninput=()=>$("hclV").value=$("hclVnum").value;
+  $("naohV").oninput=()=>$("naohVnum").value=$("naohV").value;
+  $("naohVnum").oninput=()=>$("naohV").value=$("naohVnum").value;
+}
+$("system").onchange=()=>{
+  sys=systems[$("system").value];
+  if(sys.kind==="base"){
+    $("acidLabel").textContent="共轭酸 BH⁺（NH₄⁺）浓度（mol/L)";
+    $("baseLabel").textContent="弱碱 B（NH₃）浓度（mol/L)";
+    $("acidC").value=.50;$("baseC").value=.50;
+  }else{
+    $("acidLabel").textContent="弱酸 HA 的浓度（mol/L)";
+    $("baseLabel").textContent="共轭碱 A⁻ 的浓度（mol/L)";
+    $("acidC").value=.50;$("baseC").value=.50;
+  }
+  setInitial();
+};
+$("preset").onclick=()=>{ $("acidC").value=.50;$("baseC").value=.50;$("vol").value=100;setInitial(); };
+$("reset").onclick=()=>setInitial();
+$("addHCl").onclick=()=>addStrong("acid");
+$("addNaOH").onclick=()=>addStrong("base");
+["vol","acidC","baseC"].forEach(id=>$(id).addEventListener("change",setInitial));
+window.addEventListener("resize",drawChart);
+syncAddInputs();setInitial();
+</script>
+</body>
+</html>
